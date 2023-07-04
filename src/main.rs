@@ -1,12 +1,31 @@
-use eframe::egui;
+use eframe::{egui, IconData};
 use egui::{Pos2, Vec2};
 use std::{fs, fs::File, io, io::prelude::*, io::BufReader, process::exit};
+
+#[derive(Debug)]
+struct Story {
+    name: String,
+    nodes: Vec<Node>,
+}
+
+#[derive(Debug)]
+struct Node {
+    name: String,
+    branches: Vec<Branch>,
+    content: String,
+}
+
+#[derive(Debug, Clone)]
+struct Branch {
+    id: Option<usize>,
+    name: Option<String>,
+}
 
 #[derive(PartialEq)]
 enum AppState {
     MainMenu,
     Playing,
-    Creating,
+    Tips,
 }
 pub struct App {
     stories: Vec<Story>,
@@ -25,19 +44,6 @@ impl Default for App {
             state: AppState::MainMenu,
         }
     }
-}
-
-#[derive(Debug)]
-struct Story {
-    name: String,
-    nodes: Vec<Node>,
-}
-
-#[derive(Debug)]
-struct Node {
-    name: String,
-    branches: Vec<Option<usize>>,
-    content: String,
 }
 
 fn load_stories() -> io::Result<Vec<Story>> {
@@ -59,18 +65,26 @@ fn load_stories() -> io::Result<Vec<Story>> {
                     let reader = BufReader::new(node_path);
                     let mut lines = reader.lines().map(|result| result.unwrap());
 
-                    let branches: Vec<Option<usize>> = lines
-                        .nth(0)
-                        .unwrap()
-                        .split(", ")
-                        .map(|x| {
-                            if x.parse::<usize>().is_ok() {
-                                Some(x.parse::<usize>().unwrap())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
+                    let branches: Vec<Branch> = {
+                        lines
+                            .nth(0)
+                            .unwrap()
+                            .split(", ")
+                            .clone()
+                            .map(|x| Branch {
+                                id: x.parse::<usize>().ok(),
+                                name: None,
+                            })
+                            .zip(lines.nth(0).unwrap().split(", "))
+                            .map(|(mut b, x)| {
+                                b.name = Some(x.to_string());
+                                Branch {
+                                    id: b.id,
+                                    name: b.name,
+                                }
+                            })
+                            .collect()
+                    };
 
                     let mut content: String = Default::default();
                     let mut past_node_info = false;
@@ -115,9 +129,9 @@ fn main() {
                     ui.vertical(|ui| {
                         if ui.button("Play").clicked() {
                             self.state = AppState::Playing;
-                        } else if ui.button("Create Pathed Story").clicked() {
-                            self.state = AppState::Creating;
-                        }
+                        } //else if ui.button("Create Pathed Story").clicked() {
+                          //  self.state = AppState::Tips;
+                          //}
                     });
                 } else if self.state == AppState::Playing {
                     egui::Window::new("")
@@ -145,16 +159,13 @@ fn main() {
                                     );
 
                                     for branch in current_node.branches.clone() {
-                                        if let Some(branch) = branch {
+                                        if let (Some(branch_id), Some(branch_name)) =
+                                            (branch.id, branch.name)
+                                        {
                                             ui.separator();
-                                            if ui
-                                                .button(
-                                                    &self.stories[self.current_story].nodes[branch]
-                                                        .name,
-                                                )
-                                                .clicked()
-                                            {
-                                                self.current_node = branch;
+
+                                            if ui.button(branch_name).clicked() {
+                                                self.current_node = branch_id;
                                             }
                                         }
                                     }
@@ -177,8 +188,11 @@ fn main() {
         follow_system_theme: true,
         centered: true,
         min_window_size: Some(Vec2::new(800.0, 600.0)),
+        icon_data: Some(
+            IconData::try_from_png_bytes(include_bytes!("../assets/icon.png")).unwrap(),
+        ),
         ..Default::default()
     };
 
-    eframe::run_native("Story Pather", options, Box::new(|_cc| Box::new(app))).expect("OUCH");
+    eframe::run_native("Story Brancher", options, Box::new(|_cc| Box::new(app))).expect("OUCH");
 }
