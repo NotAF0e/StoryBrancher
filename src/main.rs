@@ -1,5 +1,5 @@
 use eframe::{egui, IconData};
-use egui::{Pos2, Vec2};
+use egui::{Align, Pos2, Vec2};
 use std::{fs, fs::File, io, io::prelude::*, io::BufReader, process::exit};
 
 #[derive(Debug)]
@@ -33,6 +33,8 @@ pub struct App {
     current_story: usize,
     current_node: usize,
     state: AppState,
+
+    text_size: f32,
 }
 impl Default for App {
     fn default() -> Self {
@@ -42,6 +44,8 @@ impl Default for App {
             current_story: 0,
             current_node: 0,
             state: AppState::MainMenu,
+
+            text_size: 15.0,
         }
     }
 }
@@ -134,15 +138,30 @@ fn main() {
                           //}
                     });
                 } else if self.state == AppState::Playing {
+                    ui.with_layout(egui::Layout::left_to_right(Align::TOP), |ui| {
+                        egui::TopBottomPanel::bottom("Settings").show(ctx, |ui| {
+                            egui::collapsing_header::CollapsingHeader::new("Text size").show(
+                                ui,
+                                |ui| {
+                                    ui.add(
+                                        egui::DragValue::new(&mut self.text_size)
+                                            .clamp_range(5.0..=40.0),
+                                    );
+                                },
+                            );
+                        });
+                    });
+
                     egui::Window::new("")
                         .fixed_pos(Pos2 {
                             x: (frame.info().window_info.size.x / 4.0),
-                            y: (frame.info().window_info.size.y / 19.0),
+                            y: (frame.info().window_info.size.y / 20.0),
                         })
                         .fixed_size([
                             frame.info().window_info.size.x / 2.0,
                             frame.info().window_info.size.y / 1.2,
                         ])
+                        .collapsible(false)
                         .show(ctx, |ui| {
                             egui::ScrollArea::new([false, true])
                                 .scroll_bar_visibility(
@@ -155,7 +174,7 @@ fn main() {
                                     ui.separator();
                                     ui.label(
                                         egui::RichText::new(current_node.content.clone())
-                                            .size(20.0),
+                                            .size(self.text_size),
                                     );
 
                                     for branch in current_node.branches.clone() {
@@ -187,7 +206,7 @@ fn main() {
         hardware_acceleration: eframe::HardwareAcceleration::Required,
         follow_system_theme: true,
         centered: true,
-        min_window_size: Some(Vec2::new(800.0, 600.0)),
+        min_window_size: Some(Vec2::new(800.0, 750.0)),
         icon_data: Some(
             IconData::try_from_png_bytes(include_bytes!("../assets/icon.png")).unwrap(),
         ),
